@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bảng xếp hạng</title>
+<link href="https://fonts.googleapis.com/css2?family=Russo+One&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#10151c; --panel:#18202b; --line:#2a3544; --text:#e8edf3; --muted:#8c9bb0;
+    --gold:#f5b324; --accent:#ff5a36;
+    --F:"Russo One","Archivo Black",Impact,"Segoe UI",sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:"Segoe UI",Roboto,Arial,sans-serif;padding:24px}
+  .wrap{max-width:1100px;margin:0 auto}
+  h1{font-size:22px;margin:0 0 16px}
+  .panel-box{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px;margin-bottom:20px}
+  .panel-box summary{cursor:pointer;font-weight:600}
+  textarea{width:100%;background:#0d1219;color:var(--text);border:1px solid var(--line);border-radius:8px;padding:10px;font:14px Consolas,monospace}
+  .cols{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:10px;margin-top:12px}
+  .cols textarea{margin-top:4px;height:180px;white-space:pre;overflow:auto;resize:vertical}
+  .cols label{display:block}
+  @media(max-width:640px){.cols{grid-template-columns:1fr 1fr}}
+  .hint{color:var(--muted);font-size:13px;line-height:1.5;margin:10px 0 0}
+  .row{display:flex;flex-wrap:wrap;gap:14px;align-items:center;margin-top:12px}
+  label{font-size:13px;color:var(--muted)}
+  input[type=number]{width:70px;background:#0d1219;color:var(--text);border:1px solid var(--line);border-radius:6px;padding:6px}
+  button{background:var(--accent);color:#fff;border:0;border-radius:8px;padding:9px 18px;font-weight:600;cursor:pointer}
+  button.ghost{background:transparent;border:1px solid var(--line);color:var(--muted)}
+  button:focus-visible,textarea:focus-visible,input:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+
+  /* ===== SÂN KHẤU BẢNG (đơn vị cqw = 1% chiều rộng khung, tỉ lệ 16:9) ===== */
+  .stage{position:relative;aspect-ratio:16/9;container-type:inline-size;overflow:hidden;border-radius:10px;
+    border:1px dashed var(--line);font-family:var(--F);color:#fff}
+  .pnl{position:absolute;top:50%;transform:translateY(-50%);width:46.5cqw;height:calc(3cqw + var(--n)*3.85cqw + 1.5cqw);border-radius:.9cqw;
+    background:linear-gradient(#7a3b06,#2c0200);z-index:1}
+  .pnl.p0{left:2.6cqw} .pnl.p1{left:51cqw}
+  .hd,.r{position:relative}
+  .hd{height:3cqw;font-size:.95cqw;text-transform:uppercase;line-height:1}
+  .r{height:3.85cqw;font-size:1.65cqw}
+  .r::after{content:"";position:absolute;left:1.4cqw;right:1.2cqw;bottom:0;border-bottom:1px solid rgba(255,255,255,.65)}
+  .hd>span,.r>span{position:absolute;top:50%;transform:translate(-50%,-50%);text-align:center;white-space:nowrap}
+  .hd>span{top:1.9cqw}
+  .c0{left:3.2cqw} .c2{left:21.4cqw} .c3{left:26.2cqw} .c4{left:31.6cqw} .c5{left:37.3cqw} .c6{left:43cqw}
+  .c1{left:5.5cqw!important;transform:translateY(-50%)!important;text-align:left!important}
+  .hd .c1{left:8.5cqw!important}
+  .hd .bh{font-style:italic;text-transform:none}
+  .hd .pp{white-space:normal;width:7cqw}
+  .teamcell{display:flex;align-items:center;gap:.9cqw}
+  .logo,.ph{width:2.4cqw;height:2.4cqw;border-radius:.3cqw;flex:none}
+  .logo{object-fit:contain}
+  .ph{display:grid;place-items:center;background:rgba(255,255,255,.12);font-size:1.2cqw}
+  .crown{width:1.3cqw;height:1cqw;fill:#2b1200;stroke:#6b3a08;stroke-width:1}
+  .crown.g{fill:#ffc928;stroke:none}
+  .empty{white-space:pre-line;position:absolute;inset:0;display:grid;place-items:center;z-index:2;color:#5a1a00;font-size:1.6cqw;text-align:center}
+
+  /* ===== HIỆU ỨNG VÀO: tiêu đề → 2 khung → từng hàng hiện lần lượt ===== */
+  @keyframes fade{from{opacity:0}to{opacity:1}}
+  @keyframes rowin{from{opacity:0;transform:translateY(.8cqw)}to{opacity:1;transform:none}}
+  @keyframes ttlin{from{opacity:0;transform:translateY(-1.2cqw)}to{opacity:1;transform:none}}
+  .anim .pnl{animation:fade .5s .3s both}
+  .anim .hd{animation:fade .4s .6s both}
+  .anim .r{animation:rowin .4s calc(.8s + var(--i)*.15s) both}
+  /* ===== CHẾ ĐỘ OBS: chỉ hiện bảng, nền trong suốt ===== */
+  html:has(body.obs){background:transparent}
+  body.obs{padding:0;background:transparent;overflow:hidden}
+  body.obs .wrap{max-width:none}
+  body.obs h1,body.obs .panel-box{display:none}
+  body.obs .stage{border-radius:0}
+  body.obs .stage{border:0}
+  @media(prefers-reduced-motion:reduce){.anim *{animation:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Bảng xếp hạng</h1>
+
+  <details class="panel-box" open>
+    <summary>Dán dữ liệu</summary>
+    <div class="cols">
+      <label>Team<textarea id="cTeam" placeholder="Team A&#10;Team B&#10;Team C"></textarea></label>
+      <label>Booyah<textarea id="cBooyah" placeholder="2&#10;1&#10;0"></textarea></label>
+      <label>Elims<textarea id="cElims" placeholder="15&#10;18&#10;9"></textarea></label>
+      <label>Điểm sinh tồn<textarea id="cSurv" placeholder="20&#10;16&#10;12"></textarea></label>
+    </div>
+    <p class="hint">Copy một cột từ nơi khác rồi dán vào đúng ô của cột đó, mỗi dòng là một team và các ô phải cùng thứ tự dòng. Nếu bạn copy nhiều cột cùng lúc từ Excel / Google Sheets (Team, Booyah, Elims, Điểm sinh tồn), dán vào ô Team là tự chia vào các cột. Thứ hạng và tổng điểm tự tính. Mỗi khung hiển thị 7 team, nhiều hơn 14 team thì mỗi khung dài thêm.</p>
+    <div class="row">
+      <label>Điểm mỗi Elim <input type="number" id="pElim" value="1" step="any"></label>
+      <label>Điểm mỗi Booyah <input type="number" id="pBooyah" value="0" step="any"></label>
+      <button id="apply">Cập nhật bảng</button>
+      <button id="replay">▶ Chạy hiệu ứng</button>
+      <button id="export">Xuất ảnh PNG</button>
+      <button id="obsLink">Link OBS</button>
+      <label>Độ đậm khung (%) <input type="number" id="alpha" value="100" min="0" max="100"></label>
+      <button class="ghost" id="pick">Chọn thư mục logo</button>
+      <input type="file" id="folder" webkitdirectory multiple accept="image/*" hidden>
+      <button class="ghost" id="clear">Xóa hết</button>
+    </div>
+    <input id="obsOut" readonly hidden style="width:100%;margin-top:12px;background:#0d1219;color:var(--text);border:1px solid var(--line);border-radius:6px;padding:8px;font:13px Consolas,monospace">
+    <p class="hint">OBS: bấm <b>Link OBS</b>, link được chép sẵn. Trong OBS thêm nguồn <b>Browser</b>, bỏ chọn "Local file", dán link vào ô URL, đặt Width 1920 và Height 1080. Link có chứa dữ liệu bảng hiện tại, đổi dữ liệu thì tạo link mới. Hiệu ứng chạy mỗi khi nguồn hiện lên (bật mắt, hoặc tick "Refresh browser when scene becomes active").</p>
+    <p class="hint">Logo: đặt ảnh trong thư mục <b>logos/</b> cùng chỗ với index.html, tên file trùng tên team (ví dụ <b>logos/Team A.png</b>). Hỗ trợ png, jpg, jpeg, webp, svg. Nếu xuất ảnh mà không thấy logo, bấm <b>Chọn thư mục logo</b> và chọn thư mục logos để trình duyệt cho phép đưa logo vào ảnh. Hiệu ứng tự chạy khi bấm Cập nhật bảng hoặc Chạy hiệu ứng, gõ dữ liệu thì bảng đổi ngay không chạy lại hiệu ứng.</p>
+  </details>
+
+  <div class="stage" id="stage"></div>
+</div>
+
+<script>
+const LOGO_DIR = "logos/";
+const EXTS = ["png","jpg","jpeg","webp","svg"];
+const $ = id => document.getElementById(id);
+const KEY = "scoreboard-v2";
+const IDS = ["cTeam","cBooyah","cElims","cSurv"];
+const FONT = '"Russo One","Archivo Black",Impact,"Segoe UI",sans-serif';
+const CROWN = "M2 16L0 4L7 9L12 0L17 9L24 4L22 16Z";
+const PER = 7;
+const QS = new URLSearchParams(location.search);
+const OBS = QS.get("obs") === "1";
+if(OBS) document.body.classList.add("obs");
+
+function loadFromHash(){
+  try{
+    const m = /^#d=(.*)$/.exec(location.hash);
+    if(!m) return false;
+    const d = JSON.parse(decodeURIComponent(m[1]));
+    (d.c || []).forEach((v, i) => { if(IDS[i]) $(IDS[i]).value = v; });
+    $("pElim").value = d.e; $("pBooyah").value = d.b;
+    return true;
+  }catch(e){ return false; }
+}
+
+function buildLink(){
+  const d = {c: IDS.map(id => $(id).value), e: $("pElim").value, b: $("pBooyah").value};
+  const base = location.href.split("#")[0].split("?")[0];
+  const url = base + "?obs=1#d=" + encodeURIComponent(JSON.stringify(d));
+  const o = $("obsOut");
+  o.hidden = false; o.value = url; o.focus(); o.select();
+  let ok = false;
+  try{ ok = document.execCommand("copy"); }catch(e){}
+  if(!ok && navigator.clipboard) navigator.clipboard.writeText(url).catch(() => {});
+}
+
+function getRows(){
+  const cols = IDS.map(id => $(id).value.split("\n"));
+  const n = Math.max(...cols.map(c => c.length));
+  const num = v => parseFloat((v || "").trim().replace(",", ".")) || 0;
+  const rows = [];
+  for(let i = 0; i < n; i++){
+    const team = (cols[0][i] || "").trim();
+    if(!team) continue;
+    rows.push({team, booyah: num(cols[1][i]), elims: num(cols[2][i]), surv: num(cols[3][i])});
+  }
+  return rows;
+}
+
+IDS.forEach((id, idx) => {
+  $(id).addEventListener("paste", e => {
+    const text = (e.clipboardData || window.clipboardData).getData("text");
+    if(!text.includes("\t")) return;
+    e.preventDefault();
+    const lines = text.replace(/\r/g, "").replace(/\n+$/, "").split("\n").map(l => l.split("\t"));
+    for(let c = 0; idx + c < IDS.length; c++){
+      $(IDS[idx + c]).value = lines.map(l => (l[c] || "").trim()).join("\n");
+    }
+    render(); save();
+  });
+});
+
+const logoMap = {};
+function logoSrcs(name){
+  const k = name.trim().toLowerCase();
+  if(logoMap[k]) return [logoMap[k]];
+  return EXTS.map(x => LOGO_DIR + encodeURIComponent(name) + "." + x);
+}
+
+function setLogo(img, name){
+  const list = logoSrcs(name);
+  let i = 0;
+  img.onerror = () => {
+    i++;
+    if(i < list.length) img.src = list[i];
+    else {
+      const ph = document.createElement("div");
+      ph.className = "ph";
+      ph.textContent = name.trim().charAt(0).toUpperCase();
+      img.replaceWith(ph);
+    }
+  };
+  img.src = list[0];
+}
+
+function loadLogo(name){
+  return new Promise(res => {
+    const list = logoSrcs(name);
+    let i = 0;
+    const im = new Image();
+    im.onload = () => res(im);
+    im.onerror = () => { i++; if(i < list.length) im.src = list[i]; else res(null); };
+    im.src = list[0];
+  });
+}
+
+function getSorted(){
+  const pE = parseFloat($("pElim").value) || 0;
+  const pB = parseFloat($("pBooyah").value) || 0;
+  const rows = getRows();
+  rows.forEach(r => r.total = Math.round((r.surv + r.elims * pE + r.booyah * pB) * 100) / 100);
+  rows.sort((a,b) => b.total - a.total || b.booyah - a.booyah || b.elims - a.elims);
+  return rows;
+}
+
+function el(tag, cls, txt){
+  const e = document.createElement(tag);
+  if(cls) e.className = cls;
+  if(txt !== undefined) e.textContent = txt;
+  return e;
+}
+
+function crownSvg(gold){
+  const s = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  s.setAttribute("viewBox", "0 0 24 16");
+  s.setAttribute("class", "crown" + (gold ? " g" : ""));
+  const p = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  p.setAttribute("d", CROWN);
+  s.appendChild(p);
+  return s;
+}
+
+function render(anim){
+  const rows = getSorted();
+  const st = $("stage");
+  st.classList.remove("anim");
+  st.innerHTML = "";
+
+  const per = Math.max(PER, Math.ceil(rows.length / 2));
+  for(let p = 0; p < 2; p++){
+    const pn = el("div", "pnl p" + p);
+    pn.style.setProperty("--n", per);
+    const hd = el("div", "hd");
+    [["c0","Ranks"],["c1","Teams"],["c3 bh","Booyah!"],["c4","Elims"],["c5 pp","Placement Pts"],["c6","Total"]]
+      .forEach(([c, t]) => hd.appendChild(el("span", c, t)));
+    pn.appendChild(hd);
+
+    rows.slice(p * per, p * per + per).forEach((r, k) => {
+      const idx = p * per + k;
+      const row = el("div", "r");
+      row.style.setProperty("--i", k);
+      row.appendChild(el("span", "c0", idx + 1));
+
+      const t = el("span", "c1");
+      const w = el("div", "teamcell");
+      const img = el("img", "logo");
+      img.alt = "";
+      setLogo(img, r.team);
+      w.append(img, el("span", "", r.team));
+      t.appendChild(w);
+      row.appendChild(t);
+
+      const cr = el("span", "c2");
+      if(idx < 3) cr.appendChild(crownSvg(idx === 0));
+      row.appendChild(cr);
+
+      row.appendChild(el("span", "c3", r.booyah));
+      row.appendChild(el("span", "c4", r.elims));
+      row.appendChild(el("span", "c5", r.surv));
+      row.appendChild(el("span", "c6", Math.round(r.total * 100) / 100));
+      pn.appendChild(row);
+    });
+    st.appendChild(pn);
+  }
+  if(!rows.length) st.appendChild(el("div", "empty", "Chưa có dữ liệu.\nDán danh sách team vào ô phía trên."));
+  if(anim){ void st.offsetWidth; st.classList.add("anim"); }
+}
+
+function save(){
+  try{
+    localStorage.setItem(KEY, JSON.stringify({
+      cols: IDS.map(id => $(id).value), e: $("pElim").value, b: $("pBooyah").value
+    }));
+  }catch(e){}
+}
+
+function load(){
+  try{
+    const d = JSON.parse(localStorage.getItem(KEY) || "null");
+    if(d){
+      (d.cols || []).forEach((v, i) => { if(IDS[i]) $(IDS[i]).value = v; });
+      $("pElim").value = d.e; $("pBooyah").value = d.b;
+    }
+  }catch(e){}
+}
+
+$("apply").onclick = () => { render(true); save(); };
+$("replay").onclick = () => render(true);
+IDS.forEach(id => $(id).addEventListener("input", () => { render(); save(); }));
+$("pElim").addEventListener("input", () => { render(); save(); });
+$("pBooyah").addEventListener("input", () => { render(); save(); });
+$("clear").onclick = () => { IDS.forEach(id => $(id).value = ""); render(); save(); };
+
+/* ===== Xuất ảnh: vẽ lại đúng bố cục 1920x1080 (u = 1% chiều rộng) ===== */
+function drawBoard(rows, logos, useLogos){
+  const al = Math.min(100, Math.max(0, parseFloat($("alpha").value))) / 100 || 0;
+  const W = 1920, H = 1080, u = W / 100;
+  const cv = document.createElement("canvas");
+  cv.width = W; cv.height = H;
+  const c = cv.getContext("2d");
+
+  c.textBaseline = "middle"; c.textAlign = "center";
+
+  const per = Math.max(PER, Math.ceil(rows.length / 2));
+  const cp = new Path2D(CROWN);
+  for(let p = 0; p < 2; p++){
+    const px = p ? 51 * u : 2.6 * u, py = (H - (3 * u + per * 3.85 * u + 1.5 * u)) / 2, pw = 46.5 * u, ph = 3 * u + per * 3.85 * u + 1.5 * u;
+    const pg = c.createLinearGradient(0, py, 0, py + ph);
+    pg.addColorStop(0, "#7a3b06"); pg.addColorStop(1, "#2c0200");
+    c.save(); c.globalAlpha = al; c.fillStyle = pg;
+    c.beginPath(); c.roundRect(px, py, pw, ph, .9 * u); c.fill(); c.restore();
+
+    c.fillStyle = "#fff"; c.font = "400 " + .95 * u + "px " + FONT;
+    const hy = py + 1.9 * u;
+    c.fillText("RANKS", px + 3.2 * u, hy);
+    c.save(); c.transform(1, 0, -.18, 1, .18 * hy, 0); c.fillText("Booyah!", px + 26.2 * u, hy); c.restore();
+    c.fillText("ELIMS", px + 31.6 * u, hy);
+    c.fillText("PLACEMENT", px + 37.3 * u, hy - .55 * u); c.fillText("PTS", px + 37.3 * u, hy + .55 * u);
+    c.fillText("TOTAL", px + 43 * u, hy);
+    c.textAlign = "left"; c.fillText("TEAMS", px + 8.5 * u, hy); c.textAlign = "center";
+
+    rows.slice(p * per, p * per + per).forEach((r, k) => {
+      const idx = p * per + k, ry = py + 3 * u + k * 3.85 * u, mid = ry + 1.925 * u;
+      c.fillStyle = "rgba(255,255,255,.65)"; c.fillRect(px + 1.4 * u, ry + 3.85 * u - 1, pw - 2.6 * u, 1.5);
+      c.fillStyle = "#fff"; c.font = "400 " + 1.65 * u + "px " + FONT; c.textAlign = "center";
+      c.fillText(String(idx + 1), px + 3.2 * u, mid);
+
+      const lx = px + 5.5 * u, ls = 2.4 * u, ly = mid - ls / 2, im = useLogos ? logos[idx] : null;
+      if(im){
+        const s = Math.min(ls / im.naturalWidth, ls / im.naturalHeight), w = im.naturalWidth * s, h = im.naturalHeight * s;
+        c.drawImage(im, lx + (ls - w) / 2, ly + (ls - h) / 2, w, h);
+      } else {
+        c.fillStyle = "rgba(255,255,255,.12)"; c.beginPath(); c.roundRect(lx, ly, ls, ls, .3 * u); c.fill();
+        c.fillStyle = "#fff"; c.font = "400 " + 1.2 * u + "px " + FONT;
+        c.fillText(r.team.trim().charAt(0).toUpperCase(), lx + ls / 2, mid);
+      }
+
+      c.textAlign = "left"; c.fillStyle = "#fff"; c.font = "400 " + 1.6 * u + "px " + FONT;
+      let name = r.team;
+      while(c.measureText(name).width > 11 * u && name.length > 1) name = name.slice(0, -1);
+      if(name !== r.team) name += "…";
+      c.fillText(name, px + 8.5 * u, mid);
+
+      if(idx < 3){
+        c.save(); c.translate(px + 21.4 * u - .65 * u, mid - .5 * u); c.scale(1.3 * u / 24, 1.3 * u / 24);
+        c.fillStyle = idx === 0 ? "#ffc928" : "#2b1200"; c.fill(cp);
+        if(idx){ c.strokeStyle = "#6b3a08"; c.lineWidth = 1; c.stroke(cp); }
+        c.restore();
+      }
+
+      c.textAlign = "center"; c.fillStyle = "#fff"; c.font = "400 " + 1.65 * u + "px " + FONT;
+      c.fillText(String(r.booyah), px + 26.2 * u, mid);
+      c.fillText(String(r.elims), px + 31.6 * u, mid);
+      c.fillText(String(r.surv), px + 37.3 * u, mid);
+      c.fillText(String(r.total), px + 43 * u, mid);
+    });
+  }
+  return cv;
+}
+
+async function exportImage(){
+  const rows = getSorted();
+  if(!rows.length){ alert("Chưa có dữ liệu để xuất."); return; }
+  try{ await document.fonts.load('400 40px "Russo One"'); }catch(e){}
+  const logos = await Promise.all(rows.map(r => loadLogo(r.team)));
+  let url, noLogo = false;
+  try{
+    url = drawBoard(rows, logos, true).toDataURL("image/png");
+  }catch(e){
+    noLogo = true;
+    url = drawBoard(rows, logos, false).toDataURL("image/png");
+  }
+  const a = document.createElement("a");
+  a.href = url; a.download = "bang-xep-hang.png";
+  document.body.appendChild(a); a.click(); a.remove();
+  if(noLogo) alert("Trình duyệt chặn đọc logo từ thư mục nên ảnh được xuất không có logo. Bấm \"Chọn thư mục logo\", chọn thư mục logos rồi xuất lại.");
+}
+
+$("obsLink").onclick = () => buildLink();
+$("export").onclick = () => exportImage();
+$("pick").onclick = () => $("folder").click();
+$("folder").onchange = e => {
+  for(const f of e.target.files){
+    if(!f.type.startsWith("image/")) continue;
+    logoMap[f.name.replace(/\.[^.]+$/, "").toLowerCase()] = URL.createObjectURL(f);
+  }
+  render();
+};
+
+if(OBS){
+  loadFromHash();
+  window.addEventListener("hashchange", () => { loadFromHash(); render(true); });
+} else load();
+render(true);
+</script>
+</body>
+</html>
